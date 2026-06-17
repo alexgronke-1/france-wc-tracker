@@ -76,37 +76,37 @@
                     'x-rapidapi-host': API_HOST
                 };
 
-                console.log("Fetching data from RapidAPI...");
+                console.log("Fetching from Free API Live Football Data...");
                 
-                // 1. Fetch Matches
-                const fixturesRes = await fetch(`https://${API_HOST}/v1/matches`, { headers });
+                // 1. Fetch All Matches
+                const fixturesRes = await fetch(`https://${API_HOST}/football-get-all-matches`, { headers });
                 const fixturesData = await fixturesRes.json();
                 console.log("Raw Matches Response:", fixturesData);
-                const allMatches = fixturesData?.data || fixturesData?.results || [];
-
-                // 2. Fetch Tournament Standings
-                const standingsRes = await fetch(`https://${API_HOST}/v1/tournaments`, { headers });
+                
+                // 2. Fetch Standings (World Cup Season 2026 if available)
+                const standingsRes = await fetch(`https://${API_HOST}/football-get-standings-all`, { headers });
                 const standingsData = await standingsRes.json();
-                console.log("Raw Tournaments Response:", standingsData);
+                console.log("Raw Standings Response:", standingsData);
 
-                // Process matches for France
+                // This API wraps everything in a 'response' object
+                const allMatches = fixturesData?.response?.matches || [];
                 const franceMatches = allMatches.filter(m => {
-                    const home = (m.home_team_name || m.home_team?.name || "").toLowerCase();
-                    const away = (m.away_team_name || m.away_team?.name || "").toLowerCase();
+                    const home = (m.home_team_name || "").toLowerCase();
+                    const away = (m.away_team_name || "").toLowerCase();
                     return home.includes('france') || away.includes('france');
                 });
-                console.log("Filtered France Matches:", franceMatches);
-
+                
                 renderMatches(franceMatches);
                 renderNextMatch(franceMatches);
                 
-                const tournaments = standingsData?.data || standingsData?.results || [];
-                const wcStandings = tournaments.find(t => t.name?.toLowerCase().includes('world cup'));
-                renderStandings(wcStandings?.standings || []);
+                // Standings mapping
+                const standings = standingsData?.response?.standings || [];
+                const wcStandings = standings.find(s => s.league_name?.toLowerCase().includes('world cup'));
+                renderStandings(wcStandings?.table || []);
 
             } catch (error) {
                 console.error("Critical API Error:", error);
-                standingsDiv.innerHTML = `<p class="text-red-600 font-bold">Error connecting to API: ${error.message}</p>`;
+                standingsDiv.innerHTML = `<p class="text-red-600 font-bold">API Connection Issue: ${error.message}</p>`;
             }
         }
 
