@@ -7,54 +7,223 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 p-6">
-    <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-md p-8">
-        <h1 class="text-3xl font-bold mb-6 text-blue-800">France 2026 Tracker</h1>
-        
-        <!-- France Results Table -->
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-gray-200">
-                        <th class="p-3 border">Opponent</th>
-                        <th class="p-3 border">Score</th>
-                        <th class="p-3 border">Status</th>
-                    </tr>
-                </thead>
-                <tbody id="match-data">
-                    <!-- Data injected here -->
-                    <tr>
-                        <td class="p-3 border">Senegal</td>
-                        <td class="p-3 border font-bold">3 - 1</td>
-                        <td class="p-3 border text-green-600">Finished</td>
-                    </tr>
-                </tbody>
-            </table>
+    <div class="max-w-3xl mx-auto space-y-8">
+        <!-- What's Next Section -->
+        <div id="next-match" class="bg-blue-800 text-white rounded-xl shadow-lg p-6">
+            <h2 class="text-sm uppercase tracking-wider font-semibold opacity-75">What's Next for France</h2>
+            <div id="next-match-content" class="mt-4 flex justify-between items-center">
+                <p class="text-gray-300 italic">Finding the next match...</p>
+            </div>
         </div>
 
-        <div class="mt-8">
-            <h2 class="text-xl font-semibold mb-4">Group I Standings</h2>
-            <div id="standings" class="bg-gray-50 p-4 rounded border">
-                <p class="text-gray-600">Loading standings...</p>
+        <div class="bg-white rounded-xl shadow-md p-8">
+            <h1 class="text-3xl font-bold mb-6 text-blue-800">France 2026 Tracker</h1>
+            
+            <!-- France Results Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-200">
+                            <th class="p-3 border">Opponent</th>
+                            <th class="p-3 border">Score</th>
+                            <th class="p-3 border">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="match-data">
+                        <!-- Data injected here -->
+                        <tr>
+                            <td colspan="3" class="p-3 text-center text-gray-400">Loading matches...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-8">
+                <h2 class="text-xl font-semibold mb-4">Group I Standings</h2>
+                <div id="standings" class="bg-gray-50 p-4 rounded border">
+                    <p class="text-gray-600">Loading standings...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Player Search Section -->
+        <div class="bg-white rounded-xl shadow-md p-8">
+            <h2 class="text-2xl font-bold mb-6 text-blue-800">Player Search</h2>
+            <div class="flex gap-2">
+                <input type="text" id="player-input" placeholder="Search for a player (e.g. Mbappe)" class="flex-1 p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                <button onclick="searchPlayer()" class="bg-blue-600 text-white px-6 py-2 rounded font-semibold hover:bg-blue-700 transition">Search</button>
+            </div>
+            <div id="player-results" class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Search results injected here -->
             </div>
         </div>
     </div>
 
     <script>
-        // Placeholder for future live integration
-        // You can swap this with a fetch call to a free sports API
-        const standings = [
-            { team: "France", P: 1, W: 1, D: 0, L: 0, Pts: 3 },
-            { team: "Senegal", P: 1, W: 0, D: 0, L: 1, Pts: 0 },
-            { team: "Iraq", P: 0, W: 0, D: 0, L: 0, Pts: 0 },
-            { team: "Norway", P: 0, W: 0, D: 0, L: 0, Pts: 0 }
-        ];
-
+        // --- CONFIGURATION ---
+        const API_KEY = 'e2e84edaeamshf2b8401a1232df4p1c103cjsnbea03271b50b'; 
+        const API_HOST = 'free-api-live-football-data.p.rapidapi.com';
+        
+        const matchTable = document.getElementById('match-data');
         const standingsDiv = document.getElementById('standings');
-        standingsDiv.innerHTML = `
-            <ul class="space-y-2">
-                ${standings.map(t => `<li class="flex justify-between"><span>${t.team}</span> <strong>${t.Pts} Pts</strong></li>`).join('')}
-            </ul>
-        `;
+        const nextMatchDiv = document.getElementById('next-match-content');
+        const playerResultsDiv = document.getElementById('player-results');
+
+        async function fetchFranceData() {
+            try {
+                const headers = {
+                    'x-rapidapi-key': API_KEY,
+                    'x-rapidapi-host': API_HOST
+                };
+
+                // 1. Fetch Matches
+                const fixturesRes = await fetch(`https://${API_HOST}/v1/matches`, { headers });
+                const fixturesData = await fixturesRes.json();
+                const allMatches = fixturesData?.data || [];
+
+                // 2. Fetch Tournament Standings
+                const standingsRes = await fetch(`https://${API_HOST}/v1/tournaments`, { headers });
+                const standingsData = await standingsRes.json();
+
+                // Process matches for France
+                const franceMatches = allMatches.filter(m => 
+                    m.home_team_name?.includes('France') || m.away_team_name?.includes('France')
+                );
+
+                renderMatches(franceMatches);
+                renderNextMatch(franceMatches);
+                
+                const wcStandings = (standingsData?.data || []).find(t => t.name?.includes('World Cup'));
+                renderStandings(wcStandings?.standings || []);
+
+            } catch (error) {
+                console.error("Error fetching data:", error);
+                standingsDiv.innerHTML = `<p class="text-red-600">Failed to load live data.</p>`;
+            }
+        }
+
+        function renderNextMatch(matches) {
+            const upcoming = matches.filter(m => m.status_name !== 'Finished')
+                                   .sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+            
+            if (upcoming.length > 0) {
+                const m = upcoming[0];
+                const opponent = m.home_team_name?.includes('France') ? m.away_team_name : m.home_team_name;
+                const date = new Date(m.start_time).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+                
+                nextMatchDiv.innerHTML = `
+                    <div>
+                        <p class="text-2xl font-bold">vs ${opponent}</p>
+                        <p class="text-blue-200">${date}</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="bg-blue-700 px-3 py-1 rounded text-sm font-bold border border-blue-500">Upcoming</span>
+                    </div>
+                `;
+            } else {
+                nextMatchDiv.innerHTML = `<p>No upcoming matches scheduled.</p>`;
+            }
+        }
+
+        async function searchPlayer() {
+            const query = document.getElementById('player-input').value;
+            if (!query) return;
+
+            playerResultsDiv.innerHTML = '<p class="text-gray-500 italic">Searching...</p>';
+
+            try {
+                const res = await fetch(`https://${API_HOST}/football-players-search?search=${encodeURIComponent(query)}`, {
+                    headers: { 'x-rapidapi-key': API_KEY, 'x-rapidapi-host': API_HOST }
+                });
+                const data = await res.json();
+                renderPlayers(data?.data || []);
+            } catch (error) {
+                playerResultsDiv.innerHTML = '<p class="text-red-600">Search failed.</p>';
+            }
+        }
+
+        function renderPlayers(players) {
+            if (players.length === 0) {
+                playerResultsDiv.innerHTML = '<p class="text-gray-500">No players found.</p>';
+                return;
+            }
+
+            playerResultsDiv.innerHTML = players.map(p => `
+                <div class="p-4 border rounded-lg hover:bg-gray-50 transition flex items-center gap-4">
+                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xl">
+                        ${p.name?.[0]}
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-gray-800">${p.name}</h3>
+                        <p class="text-sm text-gray-500">${p.team_name || 'Free Agent'}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderMatches(matches) {
+            if (!matches || matches.length === 0) {
+                matchTable.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-gray-500">No matches found.</td></tr>`;
+                return;
+            }
+
+            matchTable.innerHTML = matches.map(m => {
+                const isHome = m.home_team_name?.includes('France');
+                const opponent = isHome ? m.away_team_name : m.home_team_name;
+                const score = m.home_score !== null ? `${m.home_score} - ${m.away_score}` : 'vs';
+                const status = m.status_name || 'Upcoming';
+                const statusColor = status === 'Finished' ? 'text-green-600' : 'text-blue-600';
+                
+                return `
+                    <tr>
+                        <td class="p-3 border">${opponent}</td>
+                        <td class="p-3 border font-bold">${score}</td>
+                        <td class="p-3 border ${statusColor}">${status}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderStandings(standings) {
+            if (!standings || standings.length === 0) {
+                standingsDiv.innerHTML = `<p class="text-gray-500">Standings data unavailable for this tournament yet.</p>`;
+                return;
+            }
+
+            standingsDiv.innerHTML = `
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b text-gray-500">
+                                <th class="text-left pb-2">Team</th>
+                                <th class="text-center pb-2">P</th>
+                                <th class="text-center pb-2">W</th>
+                                <th class="text-center pb-2">D</th>
+                                <th class="text-center pb-2">L</th>
+                                <th class="text-center pb-2">Pts</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${standings.map(t => {
+                                const isFrance = t.team_name?.includes('France') || t.name?.includes('France');
+                                return `
+                                    <tr class="${isFrance ? 'bg-blue-50 font-bold' : ''}">
+                                        <td class="py-2">${t.team_name || t.name}</td>
+                                        <td class="text-center py-2">${t.played || t.overall_gp || 0}</td>
+                                        <td class="text-center py-2">${t.win || t.overall_w || 0}</td>
+                                        <td class="text-center py-2">${t.draw || t.overall_d || 0}</td>
+                                        <td class="text-center py-2">${t.loss || t.overall_l || 0}</td>
+                                        <td class="text-center py-2 text-blue-800">${t.points || t.overall_pts || 0}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        fetchFranceData();
     </script>
 </body>
 </html>
