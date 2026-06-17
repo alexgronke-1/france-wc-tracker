@@ -76,29 +76,37 @@
                     'x-rapidapi-host': API_HOST
                 };
 
+                console.log("Fetching data from RapidAPI...");
+                
                 // 1. Fetch Matches
                 const fixturesRes = await fetch(`https://${API_HOST}/v1/matches`, { headers });
                 const fixturesData = await fixturesRes.json();
-                const allMatches = fixturesData?.data || [];
+                console.log("Raw Matches Response:", fixturesData);
+                const allMatches = fixturesData?.data || fixturesData?.results || [];
 
                 // 2. Fetch Tournament Standings
                 const standingsRes = await fetch(`https://${API_HOST}/v1/tournaments`, { headers });
                 const standingsData = await standingsRes.json();
+                console.log("Raw Tournaments Response:", standingsData);
 
                 // Process matches for France
-                const franceMatches = allMatches.filter(m => 
-                    m.home_team_name?.includes('France') || m.away_team_name?.includes('France')
-                );
+                const franceMatches = allMatches.filter(m => {
+                    const home = (m.home_team_name || m.home_team?.name || "").toLowerCase();
+                    const away = (m.away_team_name || m.away_team?.name || "").toLowerCase();
+                    return home.includes('france') || away.includes('france');
+                });
+                console.log("Filtered France Matches:", franceMatches);
 
                 renderMatches(franceMatches);
                 renderNextMatch(franceMatches);
                 
-                const wcStandings = (standingsData?.data || []).find(t => t.name?.includes('World Cup'));
+                const tournaments = standingsData?.data || standingsData?.results || [];
+                const wcStandings = tournaments.find(t => t.name?.toLowerCase().includes('world cup'));
                 renderStandings(wcStandings?.standings || []);
 
             } catch (error) {
-                console.error("Error fetching data:", error);
-                standingsDiv.innerHTML = `<p class="text-red-600">Failed to load live data.</p>`;
+                console.error("Critical API Error:", error);
+                standingsDiv.innerHTML = `<p class="text-red-600 font-bold">Error connecting to API: ${error.message}</p>`;
             }
         }
 
@@ -162,17 +170,25 @@
         }
 
         function renderMatches(matches) {
+            console.log("Attempting to render matches:", matches);
             if (!matches || matches.length === 0) {
-                matchTable.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-gray-500">No matches found.</td></tr>`;
+                matchTable.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-gray-500 italic">No matches for France found in current data.</td></tr>`;
                 return;
             }
 
             matchTable.innerHTML = matches.map(m => {
-                const isHome = m.home_team_name?.includes('France');
-                const opponent = isHome ? m.away_team_name : m.home_team_name;
-                const score = m.home_score !== null ? `${m.home_score} - ${m.away_score}` : 'vs';
-                const status = m.status_name || 'Upcoming';
-                const statusColor = status === 'Finished' ? 'text-green-600' : 'text-blue-600';
+                const homeName = m.home_team_name || m.home_team?.name || 'Unknown';
+                const awayName = m.away_team_name || m.away_team?.name || 'Unknown';
+                const isHome = homeName.toLowerCase().includes('france');
+                const opponent = isHome ? awayName : homeName;
+                
+                // Flexible score parsing
+                const homeScore = m.home_score ?? m.scores?.home ?? null;
+                const awayScore = m.away_score ?? m.scores?.away ?? null;
+                const score = homeScore !== null ? `${homeScore} - ${awayScore}` : 'vs';
+                
+                const status = m.status_name || m.status?.long || 'Upcoming';
+                const statusColor = (status === 'Finished' || status === 'FT') ? 'text-green-600' : 'text-blue-600';
                 
                 return `
                     <tr>
