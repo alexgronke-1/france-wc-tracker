@@ -104,22 +104,20 @@
 
 <script>
   const ESPN_STANDINGS  = 'https://site.api.espn.com/apis/v2/sports/soccer/fifa.world/standings';
-  const ESPN_SCOREBOARD = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard';
-  const ESPN_SCHEDULE   = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/teams/2/schedule';
+  // Date range covers full 2026 group stage
+  const ESPN_FIXTURES   = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260702&limit=100';
 
   async function init() {
     try {
-      const [stRes, sbRes, schedRes] = await Promise.allSettled([
+      const [stRes, fxRes] = await Promise.allSettled([
         fetch(ESPN_STANDINGS).then(r => r.json()),
-        fetch(ESPN_SCOREBOARD).then(r => r.json()),
-        fetch(ESPN_SCHEDULE).then(r => r.json()),
+        fetch(ESPN_FIXTURES).then(r => r.json()),
       ]);
 
-      const standings  = stRes.status    === 'fulfilled' ? stRes.value    : null;
-      const scoreboard = sbRes.status    === 'fulfilled' ? sbRes.value    : null;
-      const schedule   = schedRes.status === 'fulfilled' ? schedRes.value : null;
+      const standings = stRes.status === 'fulfilled' ? stRes.value : null;
+      const fixtures  = fxRes.status === 'fulfilled' ? fxRes.value : null;
 
-      render(standings, scoreboard, schedule);
+      render(standings, fixtures);
     } catch (e) {
       console.error(e);
       showError();
@@ -131,18 +129,16 @@
   function isFrance(name) { return (name || '').toLowerCase().includes('france'); }
 
   function findFranceGroup(standings) {
-    for (const group of (standings?.groups || [])) {
+    for (const group of (standings?.children || [])) {
       if (group.standings?.entries?.some(e => isFrance(e.team?.displayName))) return group;
     }
     return null;
   }
 
-  function getStat(entry, ...abbrs) {
-    for (const abbr of abbrs) {
-      const s = entry?.stats?.find(s => s.abbreviation?.toLowerCase() === abbr.toLowerCase());
-      if (s != null) return parseInt(s.value) || 0;
-    }
-    return 0;
+  // ESPN uses abbreviations: GP=played, W=wins, D=draws(ties), L=losses, P=points, R=rank, GD=goal diff
+  function getStat(entry, abbr) {
+    const s = entry?.stats?.find(s => s.abbreviation === abbr);
+    return s != null ? (parseInt(s.value) || 0) : 0;
   }
 
   function franceComp(event) {
@@ -153,13 +149,34 @@
     return event.competitions?.[0]?.competitors?.find(c => !isFrance(c.team?.displayName));
   }
 
+  // Score is an object {value, displayValue, winner} — not a plain number
+  function scoreVal(comp) {
+    const s = comp?.score;
+    if (!s) return null;
+    return typeof s === 'object' ? s.displayValue ?? String(s.value ?? '') : String(s);
+  }
+
+  function isWinner(comp) {
+    const s = comp?.score;
+    if (!s) return null;
+    return typeof s === 'object' ? s.winner : comp?.winner;
+  }
+
+  function isCompleted(event) {
+    // A match is done when both competitors have scores
+    const comps = event.competitions?.[0]?.competitors || [];
+    return comps.length >= 2 && comps.every(c => c.score != null && scoreVal(c) !== '');
+  }
+
   function resultOf(event) {
-    const fc   = franceComp(event);
+    const fc = franceComp(event);
+    if (!fc) return null;
+    const won  = isWinner(fc);
     const comp = event.competitions?.[0];
-    if (!fc || !comp) return null;
-    const tied = comp.competitors.every(c => !c.winner);
-    if (tied) return 'draw';
-    return fc.winner ? 'win' : 'loss';
+    if (won === null || won === undefined) return null;
+    if (won) return 'win';
+    const allTied = comp?.competitors?.every(c => !isWinner(c));
+    return allTied ? 'draw' : 'loss';
   }
 
   function fmtDate(iso) {
@@ -172,21 +189,16 @@
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  function render(standings, scoreboard, schedule) {
+  function render(standings, fixtures) {
     const group   = findFranceGroup(standings);
     const entries = group?.standings?.entries || [];
 
-    let events = [];
-    if (schedule?.events?.length) {
-      events = schedule.events;
-    } else if (scoreboard?.events?.length) {
-      events = scoreboard.events.filter(e =>
-        e.competitions?.[0]?.competitors?.some(c => isFrance(c.team?.displayName))
-      );
-    }
+    const allEvents = (fixtures?.events || []).filter(e =>
+      e.competitions?.[0]?.competitors?.some(c => isFrance(c.team?.displayName))
+    );
 
-    const played   = events.filter(e =>  e.status?.type?.completed);
-    const upcoming = events.filter(e => !e.status?.type?.completed);
+    const played   = allEvents.filter(e =>  isCompleted(e));
+    const upcoming = allEvents.filter(e => !isCompleted(e));
 
     renderStatus(entries);
     renderNextMatch(upcoming);
@@ -199,9 +211,9 @@
     const fr = entries.find(e => isFrance(e.team?.displayName));
     if (!fr) { document.getElementById('status-line').textContent = 'Data unavailable'; return; }
 
-    const rank = getStat(fr, 'rank') || entries.indexOf(fr) + 1;
-    const pts  = getStat(fr, 'pts', 'PTS', 'points');
-    const gp   = getStat(fr, 'gp', 'GP', 'played');
+    const rank = getStat(fr, 'R') || entries.indexOf(fr) + 1;
+    const pts  = getStat(fr, 'P');
+    const gp   = getStat(fr, 'GP');
     const sfx  = ['st','nd','rd'][rank - 1] || 'th';
     const note = rank <= 2 ? '· On track to advance' : '· Outside automatic spots';
 
@@ -272,8 +284,8 @@
       const opp    = opponentIn(ev);
       const res    = resultOf(ev);
       const isHome = fr?.homeAway === 'home';
-      const fScore = fr?.score ?? '–';
-      const oScore = opp?.score ?? '–';
+      const fScore = scoreVal(fr) ?? '–';
+      const oScore = scoreVal(opp) ?? '–';
       const date   = new Date(ev.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
       const pillClass  = res === 'win' ? 'pill-green' : res === 'draw' ? 'pill-yellow' : 'pill-red';
@@ -304,7 +316,7 @@
       return;
     }
 
-    const sorted = [...entries].sort((a, b) => getStat(a, 'rank') - getStat(b, 'rank'));
+    const sorted = [...entries].sort((a, b) => getStat(a, 'R') - getStat(b, 'R'));
 
     el.innerHTML = `
       <div>
@@ -316,9 +328,9 @@
         </div>
         ${sorted.map((entry, i) => {
           const fr   = isFrance(entry.team?.displayName);
-          const rank = getStat(entry, 'rank') || i + 1;
-          const pts  = getStat(entry, 'pts', 'PTS', 'points');
-          const gp   = getStat(entry, 'gp', 'GP', 'played');
+          const rank = getStat(entry, 'R') || i + 1;
+          const pts  = getStat(entry, 'P');
+          const gp   = getStat(entry, 'GP');
           const adv  = rank <= 2;
 
           return `
@@ -340,8 +352,8 @@
     const fr = entries.find(e => isFrance(e.team?.displayName));
     if (!fr) { el.innerHTML = `<p class="text-white/35 italic">No data.</p>`; return; }
 
-    const rank      = getStat(fr, 'rank') || 1;
-    const pts       = getStat(fr, 'pts', 'PTS', 'points');
+    const rank      = getStat(fr, 'R') || 1;
+    const pts       = getStat(fr, 'P');
     const gamesLeft = upcoming.length;
     let html = '';
 
@@ -384,7 +396,7 @@
             ${others.map(e => `
               <div class="flex justify-between items-center py-1.5">
                 <span class="text-white/55 text-sm">${e.team?.displayName}</span>
-                <span class="text-white/35 text-xs">${getStat(e, 'pts', 'PTS', 'points')} pts</span>
+                <span class="text-white/35 text-xs">${getStat(e, 'P')} pts</span>
               </div>
             `).join('')}
           </div>
