@@ -103,21 +103,26 @@
 </div>
 
 <script>
-  const ESPN_STANDINGS  = 'https://site.api.espn.com/apis/v2/sports/soccer/fifa.world/standings';
-  // Date range covers full 2026 group stage
-  const ESPN_FIXTURES   = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260702&limit=100';
+  const ESPN_STANDINGS = 'https://site.api.espn.com/apis/v2/sports/soccer/fifa.world/standings';
+  const ESPN_BOARD     = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard';
+  // France's confirmed Group I match dates — fetch each day individually (range query unreliable in browser)
+  const FRANCE_DATES   = ['20260616', '20260622', '20260626'];
 
   async function init() {
     try {
-      const [stRes, fxRes] = await Promise.allSettled([
+      const fetches = await Promise.allSettled([
         fetch(ESPN_STANDINGS).then(r => r.json()),
-        fetch(ESPN_FIXTURES).then(r => r.json()),
+        ...FRANCE_DATES.map(d => fetch(`${ESPN_BOARD}?dates=${d}`).then(r => r.json()))
       ]);
 
-      const standings = stRes.status === 'fulfilled' ? stRes.value : null;
-      const fixtures  = fxRes.status === 'fulfilled' ? fxRes.value : null;
+      const standings  = fetches[0].status === 'fulfilled' ? fetches[0].value : null;
+      const allEvents  = fetches.slice(1)
+        .filter(r => r.status === 'fulfilled')
+        .flatMap(r => (r.value?.events || []).filter(e =>
+          e.competitions?.[0]?.competitors?.some(c => isFrance(c.team?.displayName))
+        ));
 
-      render(standings, fixtures);
+      render(standings, allEvents);
     } catch (e) {
       console.error(e);
       showError();
@@ -149,36 +154,45 @@
     return event.competitions?.[0]?.competitors?.find(c => !isFrance(c.team?.displayName));
   }
 
-  // Score is an object {value, displayValue, winner} — not a plain number
+  // ESPN scoreboard returns score as a plain integer; team schedule returns {value, displayValue, winner}
   function scoreVal(comp) {
     const s = comp?.score;
-    if (!s) return null;
-    return typeof s === 'object' ? s.displayValue ?? String(s.value ?? '') : String(s);
+    if (s == null) return null;
+    if (typeof s === 'object') return s.displayValue ?? String(s.value ?? '');
+    return String(s);
   }
 
   function isWinner(comp) {
     const s = comp?.score;
-    if (!s) return null;
-    return typeof s === 'object' ? s.winner : comp?.winner;
+    if (s == null) return null;
+    if (typeof s === 'object') return s.winner ?? null;
+    return null; // plain integer — no winner flag available
   }
 
   function isCompleted(event) {
-    // Prefer the status flag; fall back to score presence for endpoints that omit status
-    if (event.status?.type?.completed === true)  return true;
-    if (event.status?.type?.completed === false) return false;
-    const comps = event.competitions?.[0]?.competitors || [];
-    return comps.length >= 2 && comps.every(c => isWinner(c) === true || isWinner(c) === false);
+    const completed = event.status?.type?.completed;
+    if (completed === true)  return true;
+    if (completed === false) return false;
+    // Fallback: past events without a status field
+    return event.date ? new Date(event.date) < new Date() : false;
   }
 
   function resultOf(event) {
-    const fc = franceComp(event);
-    if (!fc) return null;
-    const won  = isWinner(fc);
-    const comp = event.competitions?.[0];
-    if (won === null || won === undefined) return null;
-    if (won) return 'win';
-    const allTied = comp?.competitors?.every(c => !isWinner(c));
-    return allTied ? 'draw' : 'loss';
+    if (!isCompleted(event)) return null;
+    const fc  = franceComp(event);
+    const opp = opponentIn(event);
+    if (!fc || !opp) return null;
+    // Use winner flag if available (team schedule endpoint)
+    const won = isWinner(fc);
+    if (won === true)  return 'win';
+    if (won === false) return isWinner(opp) === true ? 'loss' : 'draw';
+    // Fall back to score comparison (scoreboard endpoint — plain integers)
+    const fs = typeof fc.score  === 'object' ? fc.score?.value  : fc.score;
+    const os = typeof opp.score === 'object' ? opp.score?.value : opp.score;
+    if (fs == null || os == null) return null;
+    if (fs > os) return 'win';
+    if (fs < os) return 'loss';
+    return 'draw';
   }
 
   function fmtDate(iso) {
@@ -191,13 +205,9 @@
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  function render(standings, fixtures) {
+  function render(standings, allEvents) {
     const group   = findFranceGroup(standings);
     const entries = group?.standings?.entries || [];
-
-    const allEvents = (fixtures?.events || []).filter(e =>
-      e.competitions?.[0]?.competitors?.some(c => isFrance(c.team?.displayName))
-    );
 
     const played   = allEvents.filter(e =>  isCompleted(e));
     const upcoming = allEvents.filter(e => !isCompleted(e));
