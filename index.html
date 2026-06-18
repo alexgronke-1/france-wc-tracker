@@ -105,22 +105,41 @@
 <script>
   const ESPN_STANDINGS = 'https://site.api.espn.com/apis/v2/sports/soccer/fifa.world/standings';
   const ESPN_BOARD     = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard';
-  // France's confirmed Group I match dates — fetch each day individually (range query unreliable in browser)
+  const ESPN_SCHEDULE  = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/teams/478/schedule';
+  // France's confirmed Group I match dates — fetched individually (range query unreliable in browsers)
   const FRANCE_DATES   = ['20260616', '20260622', '20260626'];
 
   async function init() {
     try {
       const fetches = await Promise.allSettled([
         fetch(ESPN_STANDINGS).then(r => r.json()),
+        fetch(ESPN_SCHEDULE).then(r => r.json()),
         ...FRANCE_DATES.map(d => fetch(`${ESPN_BOARD}?dates=${d}`).then(r => r.json()))
       ]);
 
-      const standings  = fetches[0].status === 'fulfilled' ? fetches[0].value : null;
-      const allEvents  = fetches.slice(1)
+      const standings = fetches[0].status === 'fulfilled' ? fetches[0].value : null;
+
+      // Team schedule catches knockout matches as they're scheduled
+      const scheduleEvents = fetches[1].status === 'fulfilled'
+        ? (fetches[1].value?.events || []).filter(e =>
+            e.competitions?.[0]?.competitors?.some(c => isFrance(c.team?.displayName)))
+        : [];
+
+      // Per-date scoreboard events (reliable plain-integer scores)
+      const boardEvents = fetches.slice(2)
         .filter(r => r.status === 'fulfilled')
         .flatMap(r => (r.value?.events || []).filter(e =>
           e.competitions?.[0]?.competitors?.some(c => isFrance(c.team?.displayName))
         ));
+
+      // Merge: boardEvents take priority; scheduleEvents fill in knockout matches not yet in board
+      const seen = new Set();
+      const allEvents = [];
+      [...boardEvents, ...scheduleEvents].forEach(e => {
+        const key = e.id || e.date;
+        if (!seen.has(key)) { seen.add(key); allEvents.push(e); }
+      });
+      allEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
 
       render(standings, allEvents);
     } catch (e) {
@@ -128,6 +147,9 @@
       showError();
     }
   }
+
+  // Re-fetch every 60 seconds so scores update while the page is open
+  setInterval(init, 60000);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
