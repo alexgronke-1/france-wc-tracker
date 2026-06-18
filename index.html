@@ -163,9 +163,11 @@
   }
 
   function isCompleted(event) {
-    // A match is done when both competitors have scores
+    // Prefer the status flag; fall back to score presence for endpoints that omit status
+    if (event.status?.type?.completed === true)  return true;
+    if (event.status?.type?.completed === false) return false;
     const comps = event.competitions?.[0]?.competitors || [];
-    return comps.length >= 2 && comps.every(c => c.score != null && scoreVal(c) !== '');
+    return comps.length >= 2 && comps.every(c => isWinner(c) === true || isWinner(c) === false);
   }
 
   function resultOf(event) {
@@ -242,15 +244,15 @@
       <div class="flex flex-wrap items-center gap-8 w-full">
         <div class="flex items-center gap-5">
           <div class="text-center">
-            ${home?.team?.logo
-              ? `<img src="${home.team.logo}" class="w-14 h-14 object-contain mx-auto mb-1">`
+            ${home?.team?.logos?.[0]?.href
+              ? `<img src="${home.team.logos[0].href}" class="w-14 h-14 object-contain mx-auto mb-1">`
               : `<div class="w-14 h-14 mx-auto mb-1 flex items-center justify-center text-3xl">${isHome ? '🇫🇷' : '⚽'}</div>`}
             <p class="text-white/55 text-xs font-semibold">${home?.team?.abbreviation || '—'}</p>
           </div>
           <span class="text-white/20 text-xs uppercase tracking-[0.2em]">vs</span>
           <div class="text-center">
-            ${away?.team?.logo
-              ? `<img src="${away.team.logo}" class="w-14 h-14 object-contain mx-auto mb-1">`
+            ${away?.team?.logos?.[0]?.href
+              ? `<img src="${away.team.logos[0].href}" class="w-14 h-14 object-contain mx-auto mb-1">`
               : `<div class="w-14 h-14 mx-auto mb-1 flex items-center justify-center text-3xl">${!isHome ? '🇫🇷' : '⚽'}</div>`}
             <p class="text-white/55 text-xs font-semibold">${away?.team?.abbreviation || '—'}</p>
           </div>
@@ -264,7 +266,7 @@
         </div>
 
         <div class="text-right flex-shrink-0">
-          <span class="inline-block px-3 py-1 rounded-full bg-white/8 text-white/50 text-xs border border-white/10">
+          <span class="inline-block px-3 py-1 rounded-full bg-white/10 text-white/50 text-xs border border-white/10">
             Group stage
           </span>
         </div>
@@ -387,7 +389,7 @@
 
       const others = entries
         .filter(e => !isFrance(e.team?.displayName))
-        .sort((a, b) => getStat(a, 'rank') - getStat(b, 'rank'));
+        .sort((a, b) => getStat(a, 'R') - getStat(b, 'R'));
 
       if (others.length) {
         html += `
