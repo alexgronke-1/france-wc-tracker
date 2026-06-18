@@ -1,245 +1,425 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>France World Cup Tracker</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>France · 2026 World Cup</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      min-height: 100vh;
+      background-image: url('background.png');
+      background-size: cover;
+      background-position: center top;
+      background-attachment: fixed;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(160deg, rgba(0,5,25,0.80) 0%, rgba(0,8,30,0.72) 50%, rgba(0,4,18,0.86) 100%);
+      z-index: 0;
+    }
+    .content { position: relative; z-index: 1; }
+    .glass {
+      background: rgba(255,255,255,0.06);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(255,255,255,0.10);
+    }
+    .tricolor {
+      background: linear-gradient(to right, #002395 33.33%, #fff 33.33%, #fff 66.66%, #ED2939 66.66%);
+    }
+    .pill-green  { background: rgba(34,197,94,0.18);  border: 1px solid rgba(34,197,94,0.35);  color: #86efac; }
+    .pill-yellow { background: rgba(234,179,8,0.18);  border: 1px solid rgba(234,179,8,0.35);  color: #fde047; }
+    .pill-red    { background: rgba(239,68,68,0.18);  border: 1px solid rgba(239,68,68,0.35);  color: #fca5a5; }
+    .row-france  { border-left: 2px solid #6B9FFF; padding-left: 6px; margin-left: -8px; }
+  </style>
 </head>
-<body class="bg-gray-100 p-6">
-    <div class="max-w-3xl mx-auto space-y-8">
-        <!-- What's Next Section -->
-        <div id="next-match" class="bg-blue-800 text-white rounded-xl shadow-lg p-6">
-            <h2 class="text-sm uppercase tracking-wider font-semibold opacity-75">What's Next for France</h2>
-            <div id="next-match-content" class="mt-4 flex justify-between items-center">
-                <p class="text-gray-300 italic">Finding the next match...</p>
-            </div>
-        </div>
+<body>
+<div class="content max-w-5xl mx-auto px-4 py-10">
 
-        <div class="bg-white rounded-xl shadow-md p-8">
-            <h1 class="text-3xl font-bold mb-6 text-blue-800">France 2026 Tracker</h1>
-            
-            <!-- France Results Table -->
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-gray-200">
-                            <th class="p-3 border">Opponent</th>
-                            <th class="p-3 border">Score</th>
-                            <th class="p-3 border">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="match-data">
-                        <!-- Data injected here -->
-                        <tr>
-                            <td colspan="3" class="p-3 text-center text-gray-400">Loading matches...</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+  <!-- Header -->
+  <header class="mb-10">
+    <div class="h-[3px] tricolor rounded-full w-20 mb-8"></div>
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="text-white/40 text-xs uppercase tracking-[0.22em] mb-2">2026 FIFA World Cup</p>
+        <h1 class="text-white text-6xl font-black tracking-tight leading-none">FRANCE</h1>
+        <p class="text-white/35 text-sm mt-1 tracking-widest uppercase">Les Bleus</p>
+      </div>
+      <div id="status-block" class="glass rounded-xl px-5 py-3 text-right">
+        <p class="text-white/35 text-xs uppercase tracking-wider mb-1">Current Standing</p>
+        <p id="status-line" class="text-white font-bold text-base">Loading…</p>
+      </div>
+    </div>
+  </header>
 
-            <div class="mt-8">
-                <h2 class="text-xl font-semibold mb-4">Group I Standings</h2>
-                <div id="standings" class="bg-gray-50 p-4 rounded border">
-                    <p class="text-gray-600">Loading standings...</p>
-                </div>
-            </div>
-        </div>
+  <!-- Top grid: Next Match (wide) + Standings (narrow) -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
 
-        <!-- Player Search Section -->
-        <div class="bg-white rounded-xl shadow-md p-8">
-            <h2 class="text-2xl font-bold mb-6 text-blue-800">Player Search</h2>
-            <div class="flex gap-2">
-                <input type="text" id="player-input" placeholder="Search for a player (e.g. Mbappe)" class="flex-1 p-2 border rounded shadow-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                <button onclick="searchPlayer()" class="bg-blue-600 text-white px-6 py-2 rounded font-semibold hover:bg-blue-700 transition">Search</button>
-            </div>
-            <div id="player-results" class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Search results injected here -->
-            </div>
-        </div>
+    <!-- What's Next -->
+    <div class="lg:col-span-2">
+      <p class="text-white/35 text-xs uppercase tracking-[0.18em] mb-3">What's Next</p>
+      <div id="next-match" class="glass rounded-2xl p-7 min-h-[140px] flex items-center">
+        <p class="text-white/30 italic">Loading…</p>
+      </div>
     </div>
 
-    <script>
-        // --- CONFIGURATION ---
-        const API_KEY = 'e2e84edaeamshf2b8401a1232df4p1c103cjsnbea03271b50b'; 
-        const API_HOST = 'free-api-live-football-data.p.rapidapi.com';
-        
-        const matchTable = document.getElementById('match-data');
-        const standingsDiv = document.getElementById('standings');
-        const nextMatchDiv = document.getElementById('next-match-content');
-        const playerResultsDiv = document.getElementById('player-results');
+    <!-- Standings -->
+    <div>
+      <p class="text-white/35 text-xs uppercase tracking-[0.18em] mb-3">Group Standings</p>
+      <div id="standings" class="glass rounded-2xl p-5 min-h-[140px]">
+        <p class="text-white/30 italic">Loading…</p>
+      </div>
+    </div>
+  </div>
 
-        async function fetchFranceData() {
-            try {
-                const headers = {
-                    'x-rapidapi-key': API_KEY,
-                    'x-rapidapi-host': API_HOST
-                };
+  <!-- Bottom grid: Results + Watch For -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-                console.log("Fetching from Free API Live Football Data...");
-                
-                // 1. Fetch All Matches
-                const fixturesRes = await fetch(`https://${API_HOST}/football-get-all-matches`, { headers });
-                const fixturesData = await fixturesRes.json();
-                console.log("Raw Matches Response:", fixturesData);
-                
-                // 2. Fetch Standings (World Cup Season 2026 if available)
-                const standingsRes = await fetch(`https://${API_HOST}/football-get-standings-all`, { headers });
-                const standingsData = await standingsRes.json();
-                console.log("Raw Standings Response:", standingsData);
+    <!-- Results -->
+    <div class="lg:col-span-2">
+      <p class="text-white/35 text-xs uppercase tracking-[0.18em] mb-3">France's Results</p>
+      <div id="results" class="space-y-2">
+        <div class="glass rounded-2xl p-5"><p class="text-white/30 italic">Loading…</p></div>
+      </div>
+    </div>
 
-                // This API wraps everything in a 'response' object
-                const allMatches = fixturesData?.response?.matches || [];
-                const franceMatches = allMatches.filter(m => {
-                    const home = (m.home_team_name || "").toLowerCase();
-                    const away = (m.away_team_name || "").toLowerCase();
-                    return home.includes('france') || away.includes('france');
-                });
-                
-                renderMatches(franceMatches);
-                renderNextMatch(franceMatches);
-                
-                // Standings mapping
-                const standings = standingsData?.response?.standings || [];
-                const wcStandings = standings.find(s => s.league_name?.toLowerCase().includes('world cup'));
-                renderStandings(wcStandings?.table || []);
+    <!-- Watch For -->
+    <div>
+      <p class="text-white/35 text-xs uppercase tracking-[0.18em] mb-3">Watch For</p>
+      <div id="watch-for" class="glass rounded-2xl p-5">
+        <p class="text-white/30 italic">Loading…</p>
+      </div>
+    </div>
+  </div>
 
-            } catch (error) {
-                console.error("Critical API Error:", error);
-                standingsDiv.innerHTML = `<p class="text-red-600 font-bold">API Connection Issue: ${error.message}</p>`;
-            }
-        }
+  <footer class="mt-14 text-center">
+    <div class="h-px tricolor max-w-[80px] mx-auto mb-4 opacity-40"></div>
+    <p class="text-white/20 text-xs tracking-wider">Live data · Refreshes on load</p>
+  </footer>
+</div>
 
-        function renderNextMatch(matches) {
-            const upcoming = matches.filter(m => m.status_name !== 'Finished')
-                                   .sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
-            
-            if (upcoming.length > 0) {
-                const m = upcoming[0];
-                const opponent = m.home_team_name?.includes('France') ? m.away_team_name : m.home_team_name;
-                const date = new Date(m.start_time).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-                
-                nextMatchDiv.innerHTML = `
-                    <div>
-                        <p class="text-2xl font-bold">vs ${opponent}</p>
-                        <p class="text-blue-200">${date}</p>
-                    </div>
-                    <div class="text-right">
-                        <span class="bg-blue-700 px-3 py-1 rounded text-sm font-bold border border-blue-500">Upcoming</span>
-                    </div>
-                `;
-            } else {
-                nextMatchDiv.innerHTML = `<p>No upcoming matches scheduled.</p>`;
-            }
-        }
+<script>
+  const ESPN_STANDINGS  = 'https://site.api.espn.com/apis/v2/sports/soccer/fifa.world/standings';
+  const ESPN_SCOREBOARD = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard';
+  const ESPN_SCHEDULE   = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/teams/2/schedule';
 
-        async function searchPlayer() {
-            const query = document.getElementById('player-input').value;
-            if (!query) return;
+  async function init() {
+    try {
+      const [stRes, sbRes, schedRes] = await Promise.allSettled([
+        fetch(ESPN_STANDINGS).then(r => r.json()),
+        fetch(ESPN_SCOREBOARD).then(r => r.json()),
+        fetch(ESPN_SCHEDULE).then(r => r.json()),
+      ]);
 
-            playerResultsDiv.innerHTML = '<p class="text-gray-500 italic">Searching...</p>';
+      const standings  = stRes.status    === 'fulfilled' ? stRes.value    : null;
+      const scoreboard = sbRes.status    === 'fulfilled' ? sbRes.value    : null;
+      const schedule   = schedRes.status === 'fulfilled' ? schedRes.value : null;
 
-            try {
-                const res = await fetch(`https://${API_HOST}/football-players-search?search=${encodeURIComponent(query)}`, {
-                    headers: { 'x-rapidapi-key': API_KEY, 'x-rapidapi-host': API_HOST }
-                });
-                const data = await res.json();
-                renderPlayers(data?.data || []);
-            } catch (error) {
-                playerResultsDiv.innerHTML = '<p class="text-red-600">Search failed.</p>';
-            }
-        }
+      render(standings, scoreboard, schedule);
+    } catch (e) {
+      console.error(e);
+      showError();
+    }
+  }
 
-        function renderPlayers(players) {
-            if (players.length === 0) {
-                playerResultsDiv.innerHTML = '<p class="text-gray-500">No players found.</p>';
-                return;
-            }
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
-            playerResultsDiv.innerHTML = players.map(p => `
-                <div class="p-4 border rounded-lg hover:bg-gray-50 transition flex items-center gap-4">
-                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xl">
-                        ${p.name?.[0]}
-                    </div>
-                    <div>
-                        <h3 class="font-bold text-gray-800">${p.name}</h3>
-                        <p class="text-sm text-gray-500">${p.team_name || 'Free Agent'}</p>
-                    </div>
-                </div>
-            `).join('');
-        }
+  function isFrance(name) { return (name || '').toLowerCase().includes('france'); }
 
-        function renderMatches(matches) {
-            console.log("Attempting to render matches:", matches);
-            if (!matches || matches.length === 0) {
-                matchTable.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-gray-500 italic">No matches for France found in current data.</td></tr>`;
-                return;
-            }
+  function findFranceGroup(standings) {
+    for (const group of (standings?.groups || [])) {
+      if (group.standings?.entries?.some(e => isFrance(e.team?.displayName))) return group;
+    }
+    return null;
+  }
 
-            matchTable.innerHTML = matches.map(m => {
-                const homeName = m.home_team_name || m.home_team?.name || 'Unknown';
-                const awayName = m.away_team_name || m.away_team?.name || 'Unknown';
-                const isHome = homeName.toLowerCase().includes('france');
-                const opponent = isHome ? awayName : homeName;
-                
-                // Flexible score parsing
-                const homeScore = m.home_score ?? m.scores?.home ?? null;
-                const awayScore = m.away_score ?? m.scores?.away ?? null;
-                const score = homeScore !== null ? `${homeScore} - ${awayScore}` : 'vs';
-                
-                const status = m.status_name || m.status?.long || 'Upcoming';
-                const statusColor = (status === 'Finished' || status === 'FT') ? 'text-green-600' : 'text-blue-600';
-                
-                return `
-                    <tr>
-                        <td class="p-3 border">${opponent}</td>
-                        <td class="p-3 border font-bold">${score}</td>
-                        <td class="p-3 border ${statusColor}">${status}</td>
-                    </tr>
-                `;
-            }).join('');
-        }
+  function getStat(entry, ...abbrs) {
+    for (const abbr of abbrs) {
+      const s = entry?.stats?.find(s => s.abbreviation?.toLowerCase() === abbr.toLowerCase());
+      if (s != null) return parseInt(s.value) || 0;
+    }
+    return 0;
+  }
 
-        function renderStandings(standings) {
-            if (!standings || standings.length === 0) {
-                standingsDiv.innerHTML = `<p class="text-gray-500">Standings data unavailable for this tournament yet.</p>`;
-                return;
-            }
+  function franceComp(event) {
+    return event.competitions?.[0]?.competitors?.find(c => isFrance(c.team?.displayName));
+  }
 
-            standingsDiv.innerHTML = `
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-b text-gray-500">
-                                <th class="text-left pb-2">Team</th>
-                                <th class="text-center pb-2">P</th>
-                                <th class="text-center pb-2">W</th>
-                                <th class="text-center pb-2">D</th>
-                                <th class="text-center pb-2">L</th>
-                                <th class="text-center pb-2">Pts</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${standings.map(t => {
-                                const isFrance = t.team_name?.includes('France') || t.name?.includes('France');
-                                return `
-                                    <tr class="${isFrance ? 'bg-blue-50 font-bold' : ''}">
-                                        <td class="py-2">${t.team_name || t.name}</td>
-                                        <td class="text-center py-2">${t.played || t.overall_gp || 0}</td>
-                                        <td class="text-center py-2">${t.win || t.overall_w || 0}</td>
-                                        <td class="text-center py-2">${t.draw || t.overall_d || 0}</td>
-                                        <td class="text-center py-2">${t.loss || t.overall_l || 0}</td>
-                                        <td class="text-center py-2 text-blue-800">${t.points || t.overall_pts || 0}</td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
+  function opponentIn(event) {
+    return event.competitions?.[0]?.competitors?.find(c => !isFrance(c.team?.displayName));
+  }
 
-        fetchFranceData();
-    </script>
+  function resultOf(event) {
+    const fc   = franceComp(event);
+    const comp = event.competitions?.[0];
+    if (!fc || !comp) return null;
+    const tied = comp.competitors.every(c => !c.winner);
+    if (tied) return 'draw';
+    return fc.winner ? 'win' : 'loss';
+  }
+
+  function fmtDate(iso) {
+    return new Date(iso).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  }
+
+  function fmtTime(iso) {
+    return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  function render(standings, scoreboard, schedule) {
+    const group   = findFranceGroup(standings);
+    const entries = group?.standings?.entries || [];
+
+    let events = [];
+    if (schedule?.events?.length) {
+      events = schedule.events;
+    } else if (scoreboard?.events?.length) {
+      events = scoreboard.events.filter(e =>
+        e.competitions?.[0]?.competitors?.some(c => isFrance(c.team?.displayName))
+      );
+    }
+
+    const played   = events.filter(e =>  e.status?.type?.completed);
+    const upcoming = events.filter(e => !e.status?.type?.completed);
+
+    renderStatus(entries);
+    renderNextMatch(upcoming);
+    renderResults(played);
+    renderStandings(entries);
+    renderWatchFor(entries, upcoming);
+  }
+
+  function renderStatus(entries) {
+    const fr = entries.find(e => isFrance(e.team?.displayName));
+    if (!fr) { document.getElementById('status-line').textContent = 'Data unavailable'; return; }
+
+    const rank = getStat(fr, 'rank') || entries.indexOf(fr) + 1;
+    const pts  = getStat(fr, 'pts', 'PTS', 'points');
+    const gp   = getStat(fr, 'gp', 'GP', 'played');
+    const sfx  = ['st','nd','rd'][rank - 1] || 'th';
+    const note = rank <= 2 ? '· On track to advance' : '· Outside automatic spots';
+
+    document.getElementById('status-line').textContent =
+      `${rank}${sfx} in group · ${pts} pt${pts !== 1 ? 's' : ''} from ${gp} game${gp !== 1 ? 's' : ''} ${note}`;
+  }
+
+  function renderNextMatch(upcoming) {
+    const el = document.getElementById('next-match');
+    if (!upcoming.length) {
+      el.innerHTML = `<p class="text-white/50">No upcoming group matches — group stage may be complete.</p>`;
+      return;
+    }
+
+    const ev   = upcoming[0];
+    const comp = ev.competitions?.[0];
+    const home = comp?.competitors?.find(c => c.homeAway === 'home');
+    const away = comp?.competitors?.find(c => c.homeAway === 'away');
+    const opp  = opponentIn(ev);
+    const fr   = franceComp(ev);
+    const isHome = fr?.homeAway === 'home';
+    const venue  = comp?.venue?.fullName || '';
+    const city   = comp?.venue?.address?.city || '';
+
+    el.innerHTML = `
+      <div class="flex flex-wrap items-center gap-8 w-full">
+        <div class="flex items-center gap-5">
+          <div class="text-center">
+            ${home?.team?.logo
+              ? `<img src="${home.team.logo}" class="w-14 h-14 object-contain mx-auto mb-1">`
+              : `<div class="w-14 h-14 mx-auto mb-1 flex items-center justify-center text-3xl">${isHome ? '🇫🇷' : '⚽'}</div>`}
+            <p class="text-white/55 text-xs font-semibold">${home?.team?.abbreviation || '—'}</p>
+          </div>
+          <span class="text-white/20 text-xs uppercase tracking-[0.2em]">vs</span>
+          <div class="text-center">
+            ${away?.team?.logo
+              ? `<img src="${away.team.logo}" class="w-14 h-14 object-contain mx-auto mb-1">`
+              : `<div class="w-14 h-14 mx-auto mb-1 flex items-center justify-center text-3xl">${!isHome ? '🇫🇷' : '⚽'}</div>`}
+            <p class="text-white/55 text-xs font-semibold">${away?.team?.abbreviation || '—'}</p>
+          </div>
+        </div>
+
+        <div class="flex-1 min-w-0">
+          <p class="text-white font-semibold text-lg leading-tight">France vs ${opp?.team?.displayName || 'TBD'}</p>
+          <p class="text-white/50 text-sm mt-1">${fmtDate(ev.date)}</p>
+          <p class="text-white/30 text-xs mt-0.5">${fmtTime(ev.date)}</p>
+          ${venue ? `<p class="text-white/25 text-xs mt-2">📍 ${venue}${city ? `, ${city}` : ''}</p>` : ''}
+        </div>
+
+        <div class="text-right flex-shrink-0">
+          <span class="inline-block px-3 py-1 rounded-full bg-white/8 text-white/50 text-xs border border-white/10">
+            Group stage
+          </span>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderResults(played) {
+    const el = document.getElementById('results');
+    if (!played.length) {
+      el.innerHTML = `<div class="glass rounded-xl p-5"><p class="text-white/35 italic">No completed matches yet.</p></div>`;
+      return;
+    }
+
+    el.innerHTML = played.map(ev => {
+      const fr     = franceComp(ev);
+      const opp    = opponentIn(ev);
+      const res    = resultOf(ev);
+      const isHome = fr?.homeAway === 'home';
+      const fScore = fr?.score ?? '–';
+      const oScore = opp?.score ?? '–';
+      const date   = new Date(ev.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+      const pillClass  = res === 'win' ? 'pill-green' : res === 'draw' ? 'pill-yellow' : 'pill-red';
+      const label      = res === 'win' ? 'W' : res === 'draw' ? 'D' : res === 'loss' ? 'L' : '–';
+      const scoreColor = res === 'win' ? 'text-green-400' : res === 'draw' ? 'text-yellow-300' : 'text-red-400';
+
+      return `
+        <div class="glass rounded-xl px-5 py-4 flex items-center gap-4">
+          <span class="${pillClass} text-xs font-black w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0">${label}</span>
+          <div class="flex-1 min-w-0">
+            <p class="text-white text-sm font-medium truncate">
+              France <span class="text-white/30 font-normal">${isHome ? '(H)' : '(A)'}</span>
+              <span class="text-white/30 mx-1">vs</span>
+              ${opp?.team?.displayName || 'Unknown'}
+            </p>
+            <p class="text-white/30 text-xs mt-0.5">${date} · Group stage</p>
+          </div>
+          <p class="${scoreColor} font-bold tabular-nums text-base">${isHome ? fScore : oScore} – ${isHome ? oScore : fScore}</p>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderStandings(entries) {
+    const el = document.getElementById('standings');
+    if (!entries.length) {
+      el.innerHTML = `<p class="text-white/35 italic">No standings data.</p>`;
+      return;
+    }
+
+    const sorted = [...entries].sort((a, b) => getStat(a, 'rank') - getStat(b, 'rank'));
+
+    el.innerHTML = `
+      <div>
+        <div class="flex text-white/25 text-[10px] uppercase tracking-wider pb-2 border-b border-white/10 mb-1">
+          <span class="w-5 mr-3">#</span>
+          <span class="flex-1">Team</span>
+          <span class="w-6 text-center">P</span>
+          <span class="w-8 text-center">Pts</span>
+        </div>
+        ${sorted.map((entry, i) => {
+          const fr   = isFrance(entry.team?.displayName);
+          const rank = getStat(entry, 'rank') || i + 1;
+          const pts  = getStat(entry, 'pts', 'PTS', 'points');
+          const gp   = getStat(entry, 'gp', 'GP', 'played');
+          const adv  = rank <= 2;
+
+          return `
+            <div class="flex items-center py-2 text-sm ${fr ? 'row-france' : ''}">
+              <span class="w-5 mr-3 text-xs font-bold ${adv ? 'text-green-400' : 'text-white/25'}">${rank}</span>
+              <span class="flex-1 truncate ${fr ? 'text-white font-bold' : 'text-white/55'}">${entry.team?.displayName || '—'}${fr ? ' 🇫🇷' : ''}</span>
+              <span class="w-6 text-center text-xs text-white/40">${gp}</span>
+              <span class="w-8 text-center font-bold ${fr ? 'text-white' : 'text-white/50'}">${pts}</span>
+            </div>
+          `;
+        }).join('')}
+        <p class="text-green-400/50 text-[10px] mt-3 tracking-wide">↑ Top 2 advance automatically</p>
+      </div>
+    `;
+  }
+
+  function renderWatchFor(entries, upcoming) {
+    const el = document.getElementById('watch-for');
+    const fr = entries.find(e => isFrance(e.team?.displayName));
+    if (!fr) { el.innerHTML = `<p class="text-white/35 italic">No data.</p>`; return; }
+
+    const rank      = getStat(fr, 'rank') || 1;
+    const pts       = getStat(fr, 'pts', 'PTS', 'points');
+    const gamesLeft = upcoming.length;
+    let html = '';
+
+    if (gamesLeft > 0) {
+      html += `
+        <p class="text-white/30 text-[10px] uppercase tracking-wider mb-4">Next result means…</p>
+        <div class="space-y-4">
+          <div class="flex gap-3 items-start">
+            <span class="pill-green text-[10px] font-black px-2 py-0.5 rounded flex-shrink-0 mt-0.5">WIN</span>
+            <div>
+              <p class="text-white text-sm font-semibold">${pts + 3} pts</p>
+              <p class="text-white/40 text-xs leading-snug">${pts + 3 >= 7 ? 'Almost certainly through' : pts + 3 >= 4 ? 'Strong position to advance' : 'Back in contention'}</p>
+            </div>
+          </div>
+          <div class="flex gap-3 items-start">
+            <span class="pill-yellow text-[10px] font-black px-2 py-0.5 rounded flex-shrink-0 mt-0.5">DRAW</span>
+            <div>
+              <p class="text-white text-sm font-semibold">${pts + 1} pt${pts + 1 !== 1 ? 's' : ''}</p>
+              <p class="text-white/40 text-xs leading-snug">${gamesLeft > 1 ? 'Other results become crucial' : 'May not be enough'}</p>
+            </div>
+          </div>
+          <div class="flex gap-3 items-start">
+            <span class="pill-red text-[10px] font-black px-2 py-0.5 rounded flex-shrink-0 mt-0.5">LOSS</span>
+            <div>
+              <p class="text-white text-sm font-semibold">${pts} pt${pts !== 1 ? 's' : ''}</p>
+              <p class="text-white/40 text-xs leading-snug">${gamesLeft > 1 ? 'Must win remaining games' : 'Elimination possible'}</p>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const others = entries
+        .filter(e => !isFrance(e.team?.displayName))
+        .sort((a, b) => getStat(a, 'rank') - getStat(b, 'rank'));
+
+      if (others.length) {
+        html += `
+          <div class="mt-5 pt-4 border-t border-white/10">
+            <p class="text-white/30 text-[10px] uppercase tracking-wider mb-2">Also in the group</p>
+            ${others.map(e => `
+              <div class="flex justify-between items-center py-1.5">
+                <span class="text-white/55 text-sm">${e.team?.displayName}</span>
+                <span class="text-white/35 text-xs">${getStat(e, 'pts', 'PTS', 'points')} pts</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+    } else if (rank <= 2) {
+      html = `
+        <div class="py-2 text-center">
+          <p class="text-green-400 font-bold text-lg">France are through 🎉</p>
+          <p class="text-white/40 text-sm mt-2">Watch for their Round of 32 opponent</p>
+        </div>
+      `;
+    } else if (rank === 3) {
+      html = `
+        <div class="py-2">
+          <p class="text-yellow-300 font-semibold">Waiting on the group</p>
+          <p class="text-white/40 text-sm mt-2">France need to be one of the 8 best third-place teams to advance.</p>
+        </div>
+      `;
+    } else {
+      html = `<p class="text-red-400/80 font-semibold py-2">France have been eliminated.</p>`;
+    }
+
+    el.innerHTML = html;
+  }
+
+  function showError() {
+    ['next-match','standings','results','watch-for'].forEach(id => {
+      document.getElementById(id).innerHTML =
+        `<p class="text-red-400/60 text-sm">Could not load data — refresh to retry.</p>`;
+    });
+    document.getElementById('status-line').textContent = 'Data unavailable';
+  }
+
+  init();
+</script>
 </body>
 </html>
